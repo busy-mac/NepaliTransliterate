@@ -1,0 +1,7 @@
+[package]
+name = "nepali_transliterator"
+version = "0.1.0"
+edition = "2021"
+author = "bandesh@gmail.com"
+
+
