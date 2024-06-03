@@ -66,6 +66,7 @@ impl NepaliTransliterator {
             ('्', ("", VowelType::Dependent)),
             ('ि', ("i", VowelType::Dependent)),
             ('ी', ("ī", VowelType::Dependent)),
+            ('ो', ("o", VowelType::Dependent)),
             ('ु', ("u", VowelType::Dependent)),
             ('ू', ("ū", VowelType::Dependent)),
             ('े', ("e", VowelType::Dependent)),
@@ -99,6 +100,11 @@ impl NepaliTransliterator {
         matches!(self.mappings.get(ch), Some((_, VowelType::None)))
     }
 
+    fn is_vowel(&self, ch: &str) -> bool {
+        matches!(self.reverse_mappings.get(ch), Some(nepali_char) if matches!(self.mappings.get(nepali_char), Some((_, VowelType::Independent | VowelType::Dependent))))
+    }
+
+
     pub fn to_roman(&self, input: &str) -> String {
         let mut result = String::new();
         let mut chars = input.chars().peekable();
@@ -126,194 +132,112 @@ impl NepaliTransliterator {
         result
     }
 
-    pub fn to_nepali(&self, input: &str) -> String {
+   pub fn to_nepali(&self, input: &str) -> String {
         let mut result = String::new();
-        let mut prev_char_info: Option<(String, VowelType)> = None;
         let mut buffer = String::new();
-
         let mut chars = input.chars().peekable();
+
         while let Some(c) = chars.next() {
             if c.is_whitespace() {
                 if !buffer.is_empty() {
-                    result.push_str(&self.process_buffer(&buffer, &mut prev_char_info));
+                    result.push_str(&self.process_buffer(&buffer));
                     buffer.clear();
                 }
-                result.push(c);
-                prev_char_info = None;
+                result.push(c); // Add whitespace character directly to result
             } else {
                 buffer.push(c);
-                if chars.peek().is_none() || chars.peek().unwrap().is_whitespace() {
-                    result.push_str(&self.process_buffer(&buffer, &mut prev_char_info));
+                if self.is_vowel(&buffer) || chars.peek().map_or(false, |c| c.is_whitespace() || self.is_vowel(&c.to_string())) {
+                    result.push_str(&self.process_buffer(&buffer));
                     buffer.clear();
                 }
             }
         }
 
         if !buffer.is_empty() {
-            result.push_str(&self.process_buffer(&buffer, &mut prev_char_info));
+            result.push_str(&self.process_buffer(&buffer));
         }
 
         result
     }
 
-    fn process_buffer(&self, buffer: &str, prev_char_info: &mut Option<(String, VowelType)>) -> String {
+    fn process_buffer(&self, buffer: &str) -> String {
         let mut result = String::new();
-        let mut is_first_letter = true;
+        let mut temp = String::new();
+        let mut prev_char_is_consonant = false;
 
         for c in buffer.chars() {
             let input_char = c.to_string();
 
-            let nepali_char = match self.reverse_mappings.get(&input_char) {
-                Some(nepali_char) => nepali_char.clone(),
-                None => {
+            if self.is_vowel(&input_char) && result.is_empty() {
+                // Vowel at the beginning
+                if let Some(nepali_char) = self.reverse_mappings.get(&input_char) {
+                    result.push_str(nepali_char);
+                } else {
                     println!("Character '{}' not found in reverse_mappings", input_char);
-                    input_char.clone()
-                }
-            };
-
-            match (is_first_letter, self.mappings.get(&nepali_char)) {
-                (true, Some((_, VowelType::Independent))) => {
-                    result.push_str(&nepali_char);
-                }
-                (true, Some((_, VowelType::None))) => {
-                    result.push_str(&nepali_char);
-                }
-                (false, Some((_, VowelType::None))) => {
-                    if self.is_consonant(&input_char) {
-                        if let Some((_, VowelType::None)) = prev_char_info {
-                            result.push('्');
-                        }
-                        result.push_str(&nepali_char);
-                    } else {
-                        result.push_str(&nepali_char);
-                    }
-                }
-                (false, Some((_, VowelType::Dependent))) => {
-                    if let Some((prev_char, _)) = prev_char_info {
-                        result.push_str(&nepali_char);
-                    } else {
-                        println!("Dependent vowel '{}' without preceding consonant", input_char);
-                        result.push_str(&nepali_char);
-                    }
-                }
-                _ => {
-                    println!("Mapping not found for character '{}'", input_char);
                     result.push_str(&input_char);
                 }
+                continue;
             }
 
-            *prev_char_info = self.mappings.get(&nepali_char).cloned();
-            is_first_letter = false;
-        }
+            temp.push(c);
 
-        result
-    }
-    
-
-    /*
-          pub fn to_nepali(&self, input: &str) -> String {
-            let mut result = String::new();
-            let mut prev_was_consonant = false;
-            let mut prev_was_vowel = false;
-
-            for c in input.chars() {
-              if c.is_whitespace() {
-                result.push(c); // Add whitespace character directly to result
-              } else {
-                let nepali_char = self.mappings.get(&c.to_string());  // Lookup in hashmap (no case conversion)
-                if let Some(nepali_char) = nepali_char {
-                  // Handle mapped characters
-                  result.push_str(nepali_char);
-                  prev_was_consonant = nepali_char.ends_with('्');  // Check for halanta in mapping
-                  prev_was_vowel = nepali_char.chars().all(|x| x.is_ascii_alphabetic() && !x.is_uppercase()); // Check if all chars are lowercase letters
+            if self.is_vowel(&temp) || c.is_whitespace() {
+                if let Some(nepali_char) = self.reverse_mappings.get(&temp) {
+                    if prev_char_is_consonant {
+                        result.push('्'); // Add halant
+                    }
+                    result.push_str(nepali_char);
                 } else {
-                  // Handle unmapped characters
-                  result.push(c);
+                    let mut chars = temp.chars().peekable();
+                    while let Some(ch) = chars.next() {
+                        let input_char = ch.to_string();
+                        if let Some(nepali_char) = self.reverse_mappings.get(&input_char) {
+                            if prev_char_is_consonant {
+                                result.push('्'); // Add halant
+                            }
+                            result.push_str(nepali_char);
+                            prev_char_is_consonant = !self.is_vowel(&input_char);
+                        } else {
+                            println!("Character '{}' not found in reverse_mappings", input_char);
+                            result.push_str(&input_char);
+                        }
+                    }
                 }
+                temp.clear();
+            } else {
+                prev_char_is_consonant = true;
+            }
+        }
 
-                // Halanta insertion logic (consider both mapped and unmapped characters)
-                if c.is_alphabetic() && prev_was_consonant && !prev_was_vowel && !c.is_uppercase() {
-                  // Only insert halanta if the current character is a lowercase letter
-                  result.push('्');  // Insert halanta between consonants (except after vowels)
+        if !temp.is_empty() {
+            if let Some(nepali_char) = self.reverse_mappings.get(&temp) {
+                if prev_char_is_consonant {
+                    result.push('्'); // Add halant
                 }
-                prev_was_consonant = c.is_alphabetic();
-                prev_was_vowel = c.is_ascii_alphabetic() && !c.is_uppercase();  // Track vowel for halanta logic
-              }
+                result.push_str(nepali_char);
+            } else {
+                for ch in temp.chars() {
+                    let input_char = ch.to_string();
+                    if let Some(nepali_char) = self.reverse_mappings.get(&input_char) {
+                        if prev_char_is_consonant {
+                            result.push('्'); // Add halant
+                        }
+                        result.push_str(nepali_char);
+                        prev_char_is_consonant = !self.is_vowel(&input_char);
+                    } else {
+                        println!("Character '{}' not found in reverse_mappings", input_char);
+                        result.push_str(&input_char);
+                    }
+                }
             }
-            result
-          }
-
-    **/
-}
-
-/*
-use std::collections::HashMap;
-
-pub struct Transliterator {
-    nepali_to_roman: HashMap<char, &'static str>,
-    roman_to_nepali: HashMap<&'static str, char>,
-}
-
-impl Transliterator {
-    pub fn new() -> Self {
-        let mut nepali_to_roman = HashMap::new();
-        let mut roman_to_nepali = HashMap::new();
-
-        let mappings = vec![
-            ('अ', "a"), ('आ', "ā"), ('इ', "i"), ('ई', "ī"), ('उ', "u"),
-            ('ऊ', "ū"), ('ए', "e"), ('ऐ', "ai"), ('ओ', "o"), ('औ', "au"),
-            ('क', "k"), ('ख', "kh"), ('ग', "g"), ('घ', "gh"), ('च', "c"),
-            ('छ', "ch"), ('ज', "j"), ('झ', "jh"), ('ट', "ṭ"), ('ठ', "ṭh"),
-            ('ड', "ḍ"), ('ढ', "ḍh"), ('ण', "ṇ"), ('त', "t"), ('थ', "th"),
-            ('द', "d"), ('ध', "dh"), ('न', "n"), ('प', "p"), ('फ', "ph"),
-            ('ब', "b"), ('भ', "bh"), ('म', "m"), ('य', "y"), ('र', "r"),
-            ('ल', "l"), ('व', "v"), ('श', "ś"), ('ष', "ṣ"), ('स', "s"),
-            ('ह', "h"),
-        ];
-
-        for (nep, rom) in mappings {
-            nepali_to_roman.insert(nep, rom);
-            roman_to_nepali.insert(rom, nep);
         }
 
-        Self {
-            nepali_to_roman,
-            roman_to_nepali,
-        }
-    }
-
-
-    pub fn to_roman(&self, input: &str) -> String {
-        input.chars().map(|c| {
-
-                    self.nepali_to_roman.get(&c).cloned().unwrap_or_else(|| Box::leak(Box::new(c.to_string())))
-                }).collect()
-            }
-
-    pub fn to_nepali(&self, input: &str) -> String {
-        // This implementation needs to handle multi-char mappings properly
-        let mut result = String::new();
-        let mut i = 0;
-        while i < input.len() {
-          // Iterate through characters
-          for c in input.chars().skip(i) {
-            let candidate = c.to_string(); // Convert character to string for HashMap lookup
-            if let Some(&nepali) = self.roman_to_nepali.get(candidate.as_str()) {
-              result.push(nepali);
-              i += candidate.len();
-              break; // Exit inner loop if mapping found
-            }
-          }
-          // If no mapping found for single character, append it as-is (assuming not multi-char)
-          if i == input.len() {
-            result.push(input.chars().nth(i).unwrap());
-          }
-          i += 1;
-        }
         result
     }
-}
 
 
 
-*/
+    
+    
+}//impl
+

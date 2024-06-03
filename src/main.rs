@@ -4,7 +4,7 @@ use nepali_transliterator::NepaliTransliterator;
 
 fn main() -> Result<()>{
   let transliterator = NepaliTransliterator::new();
-  let nepali_text = "कलमले लेखेको किताब लालीगुराँस अक्षय स्मृति ऋतुविचार ज्ञान";
+  let nepali_text = "कलमले लेखेको आकाशद्वार पहाडि लालीगुराँस अक्षय स्मृति लाभांश श्री ज्ञान कोष क्षत्रपाटी काठमाण्डु ";
 
   let roman_text = transliterator.to_roman(nepali_text);
   println!("Roman: {}", roman_text);
