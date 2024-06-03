@@ -1,3 +1,5 @@
+//बिजी७७<bandesh@gmail.com>
+
 use std::collections::HashMap;
 
 pub struct NepaliTransliterator {
