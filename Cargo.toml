@@ -1,7 +1,7 @@
 [package]
-name = "nepali_transliterator"
-version = "0.1.0"
+name = "NepaliTransliterate"
+version = "0.1.7"
 edition = "2021"
-author = "bandesh@gmail.com"
 
-
+[dependencies]
+clap = "2.33.0"
