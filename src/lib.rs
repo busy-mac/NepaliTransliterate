@@ -1,11 +1,11 @@
-//0.1.7
+//0.1.8
 //बिजी७७<bandesh@gmail.com>
 
 use std::collections::HashMap;
 
 pub struct NepaliTransliterator {
     mappings: HashMap<String, (String, VowelType)>,
-     reverse_mappings :HashMap<(String, VowelType), Vec<String>>,
+    reverse_mappings :HashMap<(String, VowelType), Vec<String>>,
    
 }
 
@@ -21,7 +21,7 @@ enum VowelType {
 impl NepaliTransliterator {
     pub fn new() -> Self {
      
-          let mut mappings: HashMap<String, (String, VowelType)> = HashMap::new();
+        let mut mappings: HashMap<String, (String, VowelType)> = HashMap::new();
         let map_data = vec![
             ('अ', ("a", VowelType::Independent)),
             ('आ', ("ā", VowelType::Independent)),
@@ -199,26 +199,51 @@ impl NepaliTransliterator {
         let mut chars = sub_buffer.chars().peekable();
         let mut prev_was_consonant = false;
         let mut isbeginning = true;
-        let mut index = 0; // Index to track the position of the character
+        
+        
 
-        while let Some(c) = chars.next() {
+
+         while chars.peek().is_some() {
+             
             let mut found_mapping = false; // Reset found_mapping at the start of each iteration
+            let mut chunk = String::new();
            
-            let c_str = c.to_string(); // Convert char to String for comparison
+           
+    // Try to get the first 3 characters
+            chunk = chars.clone().take(3).collect();
+            if let Some(mapped_value) = self.map_chunk(&chunk) {
+                result.push_str(&mapped_value);
+                 found_mapping = true;
+                 prev_was_consonant = true;
+                for _ in 0..3 { chars.next(); } // Drain the first 3 characters
+                continue;
+            }
+
+            // Try to get the first 2 characters
+            chunk = chars.clone().take(2).collect();
+            if let Some(mapped_value) = self.map_chunk(&chunk) {
+                result.push_str(&mapped_value);
+                 found_mapping = true;
+                  prev_was_consonant = true;
+                for _ in 0..2 { chars.next(); } // Drain the first 2 characters
+                continue;
+            }
+           
+           if let Some(c) = chars.next() {
+           
+            let c_str = c.to_string(); 
            
 
             println!("Processing character: '{}'", c);
 
             if c == ' ' {
                 result.push_str(&c_str);
-               
-                 
                 found_mapping = true;
                 break;
             }
      
 
-// expicit checkings for चन्द्रविन्दु ँ and शिरविन्दु ं
+// explicit checkings for चन्द्रविन्दु ँ and शिरविन्दु ं
        if c == 'ṃ' {
              result.push('ं');
               found_mapping = true;
@@ -231,7 +256,7 @@ impl NepaliTransliterator {
             //println!("Character string: '{}'", c_str);
 
            if isbeginning && self.is_vowel(&c_str) {
-                println!("Beginning and current vowel: '{}'", c);
+               // println!("Beginning and current vowel: '{}'", c);
 
 if let Some(independent_vowel) = self.reverse_mappings.iter().find_map(|((roman, vowel_type), nepali_list)| {
   if  roman == &c_str  &&  *vowel_type == VowelType::Independent   {
@@ -257,7 +282,7 @@ if let Some(independent_vowel) = self.reverse_mappings.iter().find_map(|((roman,
             
          else if prev_was_consonant && self.is_vowel(&c_str) {
                 
-                println!("Prev consonant and current vowel: '{}'", c);
+              // println!("Prev consonant and current vowel: '{}'", c);
 
 for ((roman, vowel_type), nepali_list) in &self.reverse_mappings {
     // Print debugging information
@@ -312,7 +337,7 @@ for ((roman, vowel_type), nepali_list) in &self.reverse_mappings {
             } 
      */       
             else if self.is_consonant(&c_str) {
-                println!("Current consonant: '{}'", c);
+              //  println!("Current consonant: '{}'", c);
 if let Some(consonant) = self.reverse_mappings.iter().find_map(|((roman, vowel_type), nepali_list)| {
   if c_str.starts_with(roman) && *vowel_type == VowelType::None{
         nepali_list.iter().find_map(|nepali| Some(nepali.to_string()))
@@ -339,10 +364,29 @@ if let Some(consonant) = self.reverse_mappings.iter().find_map(|((roman, vowel_t
           
       } 
            
+           }//big if 
+           
         }//while
         
         result
     }
+
+
+ fn map_chunk(&self, chunk: &str) -> Option<String> {
+        for ((roman, vowel_type), nepali_list) in &self.reverse_mappings {
+            if roman == chunk && matches!(vowel_type, VowelType::None) {
+                if let Some(consonant) = nepali_list.first() {
+                    println!("Matched chunk consonant: '{}'", consonant);
+                    return Some(consonant.to_string());
+                }
+            }
+        }
+        None
+    }
+
+
+
+
 
 
 
