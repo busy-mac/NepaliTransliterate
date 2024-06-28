@@ -11,6 +11,4 @@ cargo run <br>
 hit enter<br>
 <br>
 
-Usage:
-to Roman: ./nepalitransliterate -r 'नेपाली वाक्य' -o output file (optional)<br>
-to Nepali : ./nepalitransliterate -n 'romn vāky' -o output file (optional)
+
