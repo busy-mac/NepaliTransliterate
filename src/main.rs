@@ -1,76 +1,110 @@
-//बिजी७७<bandesh@gmail.com>
+// बिजि७७<bandesh@gmail.com>
 
-use std::io;
-use std::fs;
-use clap::{App, Arg};
+use iced::widget::{button, container, text, text_editor, Column, Row};
+use iced::theme::Theme;
+use iced::{Alignment, Element, Length, Sandbox, Settings, Size};
+use iced::widget::text_editor::{Content, Action};
 use NepaliTransliterate::NepaliTransliterator;
 
-fn main() -> Result<(), io::Error> {
-    
-    println!("Usage: ./nepalitransiterate -h \n to roman:./nepali-tranliterate -r \'nepali text\' -o output_file(optional) \n  to nepali:./nepali-tranliterate -n \'roman text\' -o output_file(optional) \n ");
-    
-    let matches = App::new("Nepali Transliterator")
-     .version("1.0")
-     .author("बिजी७७")
-     .about("Transliterate Nepali text to Roman and vice versa")
-     .arg(Arg::with_name("input")
-          .help("Input text to transliterate")
-          .required(false)
-          .index(1))
-     .arg(Arg::with_name("toroman")
-          .help("Transliterate to Roman")
-          .short("r")
-          .long("toroman"))
-     .arg(Arg::with_name("tonepali")
-          .help("Transliterate to Nepali")
-          .short("n")
-          .long("tonepali"))
-     .arg(Arg::with_name("output")
-          .help("Output file")
-          .short("o")
-          .long("output")
-          .takes_value(true))
-     .get_matches();
+struct MultilineTextEditor {
+    input_content: Content,
+    output_content: Content,
+}
 
-    if matches.is_present("help") {
-        println!("Usage:
-./nepali-tranliterate -h
-to roman:./nepali-tranliterate -r \'nepali text\' -o output_file(optional)
-to nepali:./nepali-tranliterate -n \'roman text\' -o output_file(optional) ");
-        return Ok(());
+#[derive(Debug, Clone)]
+enum Message {
+    InputChanged(Action),
+    OutputChanged(Action),
+    ToRomanButtonClicked,
+    ToNepaliButtonClicked,
+}
+
+impl Sandbox for MultilineTextEditor {
+    type Message = Message;
+
+    fn new() -> Self {
+        MultilineTextEditor {
+            input_content: Content::new(),
+            output_content: Content::new(),
+        }
     }
 
-    let input_text = if let Some(input) = matches.value_of("input") {
-        input
-    } else {
-        "कलमले लेखेको आकाशद्वार पहाडि लालीगुराँस अक्षय स्मृति लाभांश श्री ज्ञान कोष क्षत्रपाटी काठमाण्डु "
-    };
-
-    let output_file = matches.value_of("output");
-
-    let transliterator = NepaliTransliterator::new();
-
-    let output = match (matches.is_present("toroman"), matches.is_present("tonepali")) {
-        (true, false) => {
-            let roman_text = transliterator.to_roman(input_text);
-            format!("Roman: {}\n", roman_text)
-        }
-        (false, true) => {
-            let nepali_text = transliterator.to_nepali(input_text);
-            format!("Nepali: {}\n", nepali_text)
-        }
-        _ => {
-            let roman_text = transliterator.to_roman(input_text);
-            let nepali_back = transliterator.to_nepali(&roman_text);
-            format!("Roman: {}\nNepali: {}\n", roman_text, nepali_back)
-        }
-    };
-
-    if let Some(file) = output_file {
-        fs::write(file, output)?;
-    } else {
-        println!("{}", output);
+    fn title(&self) -> String {
+        String::from("Nepali Transliterator")
     }
 
-    Ok(())
+    fn update(&mut self, message: Message) {
+        match message {
+            Message::InputChanged(action) => {
+                self.input_content.perform(action);
+            }
+            Message::OutputChanged(action) => {
+                self.output_content.perform(action);
+            }
+            Message::ToRomanButtonClicked => {
+                let transliterator = NepaliTransliterator::new();
+                let input_text = self.input_content.text();
+                let output = transliterator.to_roman(&input_text);
+                self.output_content = Content::with_text(&output);
+            }
+            Message::ToNepaliButtonClicked => {
+                let transliterator = NepaliTransliterator::new();
+                let input_text = self.input_content.text();
+                let output = transliterator.to_nepali(&input_text);
+                self.output_content = Content::with_text(&output);
+            }
+        }
+    }
+
+    fn view(&self) -> Element<Message> {
+        let input_label = text("Input").size(20);
+        let input_editor = text_editor(&self.input_content)
+            .on_action(Message::InputChanged)
+  
+            .height(Length::Fixed(150.0));
+
+        let button_row = Row::with_children(vec![
+            button("To Nepali").on_press(Message::ToNepaliButtonClicked).into(),
+            button("To Roman").on_press(Message::ToRomanButtonClicked).into(),
+        ])
+        .spacing(10);
+
+        let output_label = text("Output").size(20);
+        let output_editor = text_editor(&self.output_content)
+            .on_action(Message::OutputChanged)
+
+            .height(Length::Fixed(150.0));
+
+        let content = Column::with_children(vec![
+            input_label.into(),
+            input_editor.into(),
+            button_row.into(),
+            output_label.into(),
+            output_editor.into(),
+        ])
+        .spacing(20)
+        .padding(20)
+        .align_items(Alignment::Center);
+
+        container(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y()
+            .into()
+    }
+
+    fn theme(&self) -> Theme {
+        Theme::Dark
+    }
+}
+
+fn main() -> iced::Result {
+    MultilineTextEditor::run(Settings {
+        window: iced::window::Settings {
+            size: Size::new(500.0, 500.0),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
 }
