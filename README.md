@@ -10,5 +10,5 @@ type<br>
 cargo run <br>
 hit enter<br>
 <br>
-
+executable for mac available on release 
 
